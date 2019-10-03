@@ -57,8 +57,8 @@ private:
 	long size = 0;           //initialized
 	long max_size = 3;       //initialized
 	elem_t* data = nullptr;  //initialized
-    char* name = "YOU DIDN'T NAMED ME!!!";
-	long struct_sum = 0;	 //initialized DEFEND
+    char* name = "YOU DIDN'T NAMED ME!!! use SET_NAME( object name )";
+	long* struct_sum = 0;	 //initialized DEFEND
 	int canary2 = 0;         //initialized DEFEND
 
 	///@return Not commutative sum of data + 13*size - max_size
@@ -123,7 +123,7 @@ long Stack_t::calc_struct_sum ()
 		char* adress = (char*) this;
 		long sum = 0;
 		char temp = 0;
-		for (long i = 0; i < (long)&(this->struct_sum) - (long)this; i++)
+		for (long i = 0; i < sizeof(Stack_t); i++)
         {
             temp = *(adress+i);
             sum += temp & 0x0F + temp >> 4;
@@ -167,7 +167,7 @@ ERROR_CODE Stack_t::verification ()
 		error = DATA_SUM_IS_NOT_OK;
 		return DATA_SUM_IS_NOT_OK;
 		}
-		if ( temp_struct_sum != struct_sum )
+		if ( temp_struct_sum != *struct_sum )
 		{
 		error = SUM_STRUCT_IS_NOT_OK;
 		return SUM_STRUCT_IS_NOT_OK;
@@ -205,7 +205,7 @@ ERROR_CODE Stack_t::verification ()
 		long temp_data_sum = calc_data_sum();
 		long temp_struct_sum = calc_struct_sum ();
 		if ( temp_data_sum != data_sum ) return DATA_SUM_IS_NOT_OK;
-		if ( temp_struct_sum != struct_sum ) return SUM_STRUCT_IS_NOT_OK;
+		if ( temp_struct_sum != *struct_sum ) return SUM_STRUCT_IS_NOT_OK;
 		if ( canary1!=canary1_value || canary2!=canary2_value ) return STRUCT_CANARIES_FAULT;
 		if ( data[0]!=canary3_value || data[max_size+1]!=canary4_value ) return DATA_CANARIES_FAULT;
 		if ( size > max_size + 1 ) return STACK_OVERFLOW;
@@ -297,7 +297,7 @@ bool Stack_t::push (elem_t new_elem)
 		{
             data[size++] = new_elem;
             data_sum = calc_data_sum ();
-            struct_sum = calc_struct_sum ();
+            *struct_sum = calc_struct_sum ();
             return 1;
 		}
 		else
@@ -320,7 +320,7 @@ elem_t Stack_t::pop ()
 			elem_t pop_elem = data[size];
 			data[size] = $POISON;
 			data_sum = calc_data_sum ();
-            struct_sum = calc_struct_sum ();
+            *struct_sum = calc_struct_sum ();
 			return pop_elem;
 		}
 		else
@@ -333,7 +333,6 @@ long Stack_t::tell_size ()
 	{
 		return size - 1;
 	}
-
 Stack_t::Stack_t ()
 	{
 		canary1 = canary1_value;
@@ -345,13 +344,15 @@ Stack_t::Stack_t ()
 		for (int i = 1; i <= max_size; i++) data[i] = $POISON;
 		data[0] = canary3_value;
 		data[max_size+1] = canary4_value;
-        struct_sum = calc_struct_sum ();
+		struct_sum = new long;
+        *struct_sum = calc_struct_sum ();
 	}
-
 Stack_t::~Stack_t ()
 	{
 		if (data) free (data);
-		data = NULL;
+		data = nullptr;
+		delete struct_sum;
+		struct_sum = nullptr;
 	}
 
 
