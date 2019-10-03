@@ -1,3 +1,4 @@
+///@file
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
@@ -48,7 +49,6 @@ enum ERROR_CODE
 //5 - STACK UNDERFLOW
 //6 - MEMORY CAN'T BE ALLOCATED
 
-
 struct Stack_t
 {
 private:
@@ -61,7 +61,49 @@ private:
 	long struct_sum = 0;	 //initialized DEFEND
 	int canary2 = 0;         //initialized DEFEND
 
-	long calc_data_sum ()
+	///@return Not commutative sum of data + 13*size - max_size
+	long calc_data_sum ();
+
+	///@return Sum of struct bytes
+	long calc_struct_sum ();
+
+	///@brief Function allocates new memory or delete unneccesary if it is needed
+	///@return pointer to memory, 0 if it is impossible to allocate it
+	elem_t* stackmem_check_allocation ();
+
+	///@brief verificates our stack
+	///@return error_code
+	ERROR_CODE verification ();
+
+	///@brief prints state of stack if something is not OK
+	void diagnostic (ERROR_CODE error_code);
+public:
+
+	///@brief prints stack
+	void print_stack();
+
+	///@brief use SET_NAME( stack name )
+	void set_name (char* name);
+
+	///@brief push element to stack
+	///@return true if element was pushed or false if element wasn't pushed
+	bool push (elem_t new_elem);
+
+	///@brief pops element off the stack
+	///@return popped element_value
+	elem_t pop ();
+
+	///@return size_of_stack
+	long tell_size ();
+
+	Stack_t ();
+
+	~Stack_t ();
+};
+
+
+
+long Stack_t::calc_data_sum ()
 	{
 		long sum = 0;
 		for (long i = 1; i < size; i++)
@@ -76,7 +118,7 @@ private:
 		return sum;
 	}
 
-	long calc_struct_sum ()
+long Stack_t::calc_struct_sum ()
 	{
 		char* adress = (char*) this;
 		long sum = 0;
@@ -89,7 +131,7 @@ private:
 		return sum;
 	}
 
-	elem_t* stackmem_check_allocation ()
+elem_t* Stack_t::stackmem_check_allocation ()
 	{
 		elem_t* new_data = NULL;
 		if (size > max_size)
@@ -115,7 +157,7 @@ private:
 		return data;
 	}
 
-	ERROR_CODE verification ()
+ERROR_CODE Stack_t::verification ()
 	{
 	#ifdef TEST_MODE
 		long temp_data_sum = calculate_sum();
@@ -175,7 +217,7 @@ private:
 	#endif
 	}
 
-	void diagnostic (ERROR_CODE error_code)
+void Stack_t::diagnostic (ERROR_CODE error_code)
 	{
 		printf ("Stack name: %s\n", name);
 		printf ("----------------------\nStack state: ");
@@ -211,13 +253,11 @@ private:
 		printf ("----------------------\n");
 	}
 
-public:
-
 #ifdef TEST_MODE
 	ERROR_CODE error;
 #endif
 
-	void print_stack()
+void Stack_t::print_stack()
 	{
 		printf ("STACK '%s':\n"
 				"ADRESS OF STACK: %p\n", name, this);
@@ -245,12 +285,12 @@ public:
 		printf ("END OF STACK\n");
 	}
 
-	void set_name (char* name)
+void Stack_t::set_name (char* name)
 	{
 		this->name = name;
 	}
 
-	bool push (elem_t new_elem)
+bool Stack_t::push (elem_t new_elem)
 	{
 		ERROR_CODE error_code = verification ();
 		if (error_code == OK)
@@ -266,7 +306,7 @@ public:
             return 0;
 	    }
 	}
-	elem_t pop ()
+elem_t Stack_t::pop ()
 	{
 		ERROR_CODE error_code = verification();
 		if (error_code == OK)
@@ -289,12 +329,12 @@ public:
 			return $POISON;
 		}
 	}
-	long tell_size ()
+long Stack_t::tell_size ()
 	{
 		return size - 1;
 	}
 
-	Stack_t ()
+Stack_t::Stack_t ()
 	{
 		canary1 = canary1_value;
 		canary2 = canary2_value;
@@ -308,12 +348,11 @@ public:
         struct_sum = calc_struct_sum ();
 	}
 
-	~Stack_t ()
+Stack_t::~Stack_t ()
 	{
 		if (data) free (data);
 		data = NULL;
 	}
-};
 
 
 
