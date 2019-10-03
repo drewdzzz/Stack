@@ -3,6 +3,8 @@
 #include <iostream>
 #include <assert.h>
 
+#undef private:
+
 #define SET_NAME(stk)  \
 {                      \
 stk.set_name (#stk);   \
@@ -11,6 +13,7 @@ stk.set_name (#stk);   \
 //#define TEST_MODE
 
 typedef int elem_t;
+#define data_dump printf("%d\n", data[i]);
 const int canary1_value    = 0xF023A4BA;
 const int canary2_value    = 0xF563F454;
 const elem_t canary3_value = ~0xAB;
@@ -53,6 +56,7 @@ private:
     char* name = "";
 	long sum2 = 0;			 //initialized DEFEND
 	int canary2 = 0;         //initialized DEFEND
+
 	long calculate_sum ()
 	{
 		long sum = 0;
@@ -187,25 +191,26 @@ public:
 
 	void print_stack()
 	{
-		printf ("STACK:\n");
+		printf ("STACK '%s':\n", name);
 		for (long i = 1; i <= size - 1; i++)
 			if (data[i] != $POISON)
 			{
-				printf ("data[%ld] = ", i);
-				std::cout<<data[i]<<std::endl;
+				printf ("data [%.2ld] = ", i);
+				data_dump
 			}
 			else
 			{
-				printf ("***data[%ld] = ", i);
-				std::cout<<data[i]<<"  IT MAY BE EMPTY"<<std::endl;
+				printf ("***data [%.2ld] = ", i);
+				data_dump
 			}
 
 		printf ("EMPTY PART:\n");
 
 		for (long i = size; i <= max_size; i++)
 		{
-				printf ("data[%ld] = ", i);
-				std::cout<<data[i]<<" That's empty data"<<std::endl;
+				printf ("data [%.2ld] = ", i);
+				data_dump
+				-+printf (" That's empty data\n");
 		}
 		printf ("END OF STACK\n");
 	}
@@ -213,7 +218,7 @@ public:
 	{
 		this->name = name;
 	}
-	void push (elem_t new_elem)
+	bool push (elem_t new_elem)
 	{
 		ERROR_CODE error_code = verification ();
 		if (error_code == OK)
@@ -221,8 +226,13 @@ public:
             data[size++] = new_elem;
             sum1 = calculate_sum ();
             sum2 = calculate_sum ();
+            return 1;
 		}
-		else diagnostic (error_code);
+		else
+		{
+            diagnostic (error_code);
+            return 0;
+	    }
 	}
 	elem_t pop ()
 	{
@@ -244,7 +254,7 @@ public:
 		else
 		{
 			diagnostic (error_code);
-			return 0;
+			return $POISON;
 		}
 	}
 	long tell_size ()
@@ -280,8 +290,8 @@ public:
 
 bool push_test1 ()
 {
-    char test_tmp;
-	Stack_t test_stk;
+    char test_tmp = 0;
+	Stack_t test_stk = {};
 	SET_NAME (test_stk);
 	for (char i = 10; i <= 100; i += 10)
 	{
@@ -307,8 +317,8 @@ bool push_test1 ()
 
 bool push_test2 ()
 {
-    char test_tmp;
-	Stack_t test_stk;
+    char test_tmp = 0;
+	Stack_t test_stk = {};
 	SET_NAME (test_stk);
 	for (char i = 1; i <= 12; i ++)
 	{
@@ -368,7 +378,7 @@ bool pop_test1 ()
 
 bool pop_test2 ()
 {
-    Stack_t test_stk;
+    Stack_t test_stk = {};
     SET_NAME (test_stk);
     test_stk.push (10);
     test_stk.push (43);
@@ -403,7 +413,7 @@ bool pop_tests ()
 bool attack_test1 ()
 {
 	bool nice_stack = true;
-	Stack_t test_stk;
+	Stack_t test_stk = {};
 	SET_NAME (test_stk);
 	void* temp_pointer = &test_stk;
 	char* executioner = (char*)temp_pointer;
@@ -426,7 +436,7 @@ bool attack_test1 ()
 bool attack_test2 ()
 {
 	bool nice_stack = true;
-	Stack_t test_stk;
+	Stack_t test_stk = {};
 	SET_NAME (test_stk);
 	void* temp_pointer = &test_stk;
 	char* executioner = (char*)temp_pointer;
