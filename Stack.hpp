@@ -5,14 +5,14 @@
 #include <assert.h>
 
 
-#undef private:
+#undef private
 
 #define SET_NAME(stk)  \
 {                      \
 stk.set_name (#stk);   \
 }                      \
 
-//#define TEST_MODE
+#define TEST_MODE
 
 typedef int elem_t;
 #define data_dump printf("%d\n", data[i]);
@@ -27,6 +27,20 @@ static const int Stack_decrease   = 13;  //decarease value must be more than inc
 
 #ifdef TEST_MODE
 	typedef int elem_t;
+#endif
+
+
+#ifdef TEST_MODE
+	#define GIVE_ERROR(CONDITION,ACTION)  \
+		if (CONDITION)               \
+		{							 \
+			error = ACTION;			 \
+			return ACTION;			 \
+			*struct_sum = calc_struct_sum();		 \
+		}
+#else
+	#define GIVE_ERROR(CONDITION,ACTION)  \
+		if ( CONDITION ) return ACTION;
 #endif
 
 enum ERROR_CODE
@@ -57,7 +71,7 @@ private:
 	long size = 0;           //initialized
 	long max_size = 3;       //initialized
 	elem_t* data = nullptr;  //initialized
-    char* name = "YOU DIDN'T NAMED ME!!! use SET_NAME( object name )";
+    const char* name = "YOU DIDN'T NAMED ME!!! use SET_NAME( object name )";
 	long* struct_sum = 0;	 //initialized DEFEND
 	int canary2 = 0;         //initialized DEFEND
 
@@ -77,6 +91,7 @@ private:
 
 	///@brief prints state of stack if something is not OK
 	void diagnostic (ERROR_CODE error_code);
+
 public:
 
 	///@brief prints stack
@@ -99,6 +114,8 @@ public:
 	Stack_t ();
 
 	~Stack_t ();
+
+    ERROR_CODE error = OK;
 };
 
 
@@ -159,62 +176,18 @@ elem_t* Stack_t::stackmem_check_allocation ()
 
 ERROR_CODE Stack_t::verification ()
 	{
-	#ifdef TEST_MODE
-		long temp_data_sum = calculate_sum();
-		long temp_struct_sum = calc_struct_sum();
-		if ( temp_data_sum != data_sum )
-		{
-		error = DATA_SUM_IS_NOT_OK;
-		return DATA_SUM_IS_NOT_OK;
-		}
-		if ( temp_struct_sum != *struct_sum )
-		{
-		error = SUM_STRUCT_IS_NOT_OK;
-		return SUM_STRUCT_IS_NOT_OK;
-		}
-		if ( canary1!=canary1_value || canary2!=canary2_value )
-		{
-		error = STRUCT_CANARIES_FAULT;
-		return STRUCT_CANARIES_FAULT;
-		}
-		if ( data[0]!=canary3_value || data[max_size+1]!=canary4_value )
-		{
-		error = DATA_CANARIES_FAULT;
-		return DATA_CANARIES_FAULT;
-		}
-		if ( size > max_size + 1 )
-		{
-		error = STACK_UNDERFLOW;
-		return STACK_OVERFLOW;
-		}
-		if ( size < 1 )
-		{
-		error = STACK_UNDERFLOW;
-		return STACK_UNDERFLOW;
-		}
-		elem_t* new_data = stackmem_check_allocation();
-		if (new_data) data = new_data;
-		else
-		{
-		error = ALLOCATING_ERROR;
-		return ALLOCATING_ERROR;
-		}
-		error = OK;
-		return OK;
-	#else
 		long temp_data_sum = calc_data_sum();
 		long temp_struct_sum = calc_struct_sum ();
-		if ( temp_data_sum != data_sum ) return DATA_SUM_IS_NOT_OK;
-		if ( temp_struct_sum != *struct_sum ) return SUM_STRUCT_IS_NOT_OK;
-		if ( canary1!=canary1_value || canary2!=canary2_value ) return STRUCT_CANARIES_FAULT;
-		if ( data[0]!=canary3_value || data[max_size+1]!=canary4_value ) return DATA_CANARIES_FAULT;
-		if ( size > max_size + 1 ) return STACK_OVERFLOW;
-		if ( size < 1 ) return STACK_UNDERFLOW;
+		GIVE_ERROR(temp_data_sum != data_sum, DATA_SUM_IS_NOT_OK);
+		GIVE_ERROR(temp_struct_sum != *struct_sum, SUM_STRUCT_IS_NOT_OK);
+		GIVE_ERROR(canary1 != canary1_value || canary2 != canary2_value, STRUCT_CANARIES_FAULT);
+		GIVE_ERROR(data[0] != canary3_value || data[max_size+1] != canary4_value, DATA_CANARIES_FAULT);
+		GIVE_ERROR(size > max_size + 1, STACK_OVERFLOW);
+		GIVE_ERROR(size < 1, STACK_UNDERFLOW);
 		elem_t* new_data = stackmem_check_allocation();
 		if (new_data) data = new_data;
 		else return ALLOCATING_ERROR;
 		return OK;
-	#endif
 	}
 
 void Stack_t::diagnostic (ERROR_CODE error_code)
@@ -224,30 +197,41 @@ void Stack_t::diagnostic (ERROR_CODE error_code)
 		switch (error_code)
 		{
 			case (OK): printf ("OK\n"); break;
-			case (DATA_SUM_IS_NOT_OK): printf ("DATA SUM IS NOT OK, someone has attacked you :(\n");
-			                           printf ("DATA SUM: %ld\n", data_sum);
-			                           printf ("Data sum must be equal: %ld\n", calc_data_sum ());
-			                           break;
+
+			case (DATA_SUM_IS_NOT_OK):    printf ("DATA SUM IS NOT OK, someone has attacked you :(\n");
+			                              printf ("DATA SUM: %ld\n", data_sum);
+			                              printf ("Data sum must be equal: %ld\n", calc_data_sum ());
+			                              break;
+
 			case (STRUCT_CANARIES_FAULT): printf ("STRUCT CANARIES ARE NOT OK, someone has attacked you :(\n");
 			                              printf ("Actual first canary value: %d\n", canary1);
 			                              printf ("Value that first canary must be equal: %d\n", canary1_value);
 			                              printf ("Actual second canary value: %d\n", canary2);
 			                              printf ("Value that second canary must be equal: %d\n", canary2_value);
 			                              break;
-			case (DATA_CANARIES_FAULT): printf ("DATA CANARIES ARE NOT OK, someone has attacked you :(\n");
-			                            printf ("Actual first canary value: %d\n", data[0]);
-			                            printf ("Value that first canary must be equal: %d\n", canary3_value);
-			                            printf ("Actual second canary value: %d\n", data[max_size+1]);
-			                            printf ("Value that second canary must be equal: %d\n", canary4_value);
-			                            break;
-			case (STACK_OVERFLOW): printf ("STACK OVERFLOWED\n"); break;
-			case (STACK_UNDERFLOW): printf ("STACKED UNDERFLOWED\n"); break;
-			case (SUM_STRUCT_IS_NOT_OK): printf ("STRUCT SUM IS NOT OK, someone has attacked you :(\n");
-			                             printf ("STRUCT SUM SUM: %ld\n", struct_sum);
-                                         printf ("Struct sum must be equal: %ld\n", calc_struct_sum ());
-			                             break;
-			case (ALLOCATING_ERROR): printf ("MEMORY FOR NEW DATA CAN'T BE ALLOCATED\n"); break;
-			default: printf ("Wrong code\n"); break;
+
+			case (DATA_CANARIES_FAULT):   printf ("DATA CANARIES ARE NOT OK, someone has attacked you :(\n");
+			                              printf ("Actual first canary value: %d\n", data[0]);
+			                              printf ("Value that first canary must be equal: %d\n", canary3_value);
+			                              printf ("Actual second canary value: %d\n", data[max_size+1]);
+			                              printf ("Value that second canary must be equal: %d\n", canary4_value);
+			                              break;
+
+			case (STACK_OVERFLOW):        printf ("STACK OVERFLOWED\n");
+                                          break;
+
+			case (STACK_UNDERFLOW):       printf ("STACKED UNDERFLOWED\n");
+                                          break;
+
+			case (SUM_STRUCT_IS_NOT_OK):  printf ("STRUCT SUM IS NOT OK, someone has attacked you :(\n");
+			                              printf ("STRUCT SUM: %ld\n", struct_sum);
+                                          printf ("Struct sum must be equal: %ld\n", calc_struct_sum ());
+			                              break;
+
+			case (ALLOCATING_ERROR):      printf ("MEMORY FOR NEW DATA CAN'T BE ALLOCATED\n"); break;
+
+			default:                      printf ("Wrong code:%d\n", error);
+                                          break;
 		}
 		if (error_code != ALLOCATING_ERROR && error_code != SUM_STRUCT_IS_NOT_OK) print_stack();
 		printf ("----------------------\n");
@@ -288,6 +272,7 @@ void Stack_t::print_stack()
 void Stack_t::set_name (char* name)
 	{
 		this->name = name;
+		*struct_sum = calc_struct_sum();
 	}
 
 bool Stack_t::push (elem_t new_elem)
@@ -314,7 +299,7 @@ elem_t Stack_t::pop ()
             if ( size == 1 )
             {
                 diagnostic (STACK_UNDERFLOW);
-                return 0;
+                return $POISON;
             }
 			size--;
 			elem_t pop_elem = data[size];
@@ -355,11 +340,11 @@ Stack_t::~Stack_t ()
 		struct_sum = nullptr;
 	}
 
-
-
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 
 #ifdef TEST_MODE
-
 bool push_test1 ()
 {
     char test_tmp = 0;
@@ -541,7 +526,7 @@ bool attack_tests ()
     }
     if ( ! (correct = attack_test2 ()) )
     {
-    printf ("\n!!!!!!SECOND PUSH TEST WAS FAILED!!!!!!\n\n");
+    printf ("\n!!!!!!SECOND ATTACK TEST WAS FAILED!!!!!!\n\n");
     nice_stack = false;
     }
     return nice_stack;
