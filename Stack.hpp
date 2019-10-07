@@ -7,13 +7,13 @@
 
 #undef private
 
-#define SET_NAME(stk)              \
-        stk.set_name (#stk);
+#define SET_NAME(stk)           \
+            stk.set_name (#stk);
 
 #define TEST_MODE
 
 typedef int elem_t;
-
+#define data_dump printf("%d", data[i]);
 static const int canary1_value    = 0xF023A4BA;
 static const int canary2_value    = 0xF563F454;
 static const elem_t canary3_value = ~0xAB;
@@ -29,16 +29,16 @@ static const int Stack_decrease   = 13;  //decrease value must be more than incr
 
 
 #ifdef TEST_MODE
-	#define GIVE_ERROR(CONDITION,ACTION)         \
-            if (CONDITION)                       \
-            {							         \
-                error = ACTION;			         \
-                return ACTION;			         \
-                *struct_sum = calc_struct_sum()  \
-            }
+	#define GIVE_ERROR(CONDITION,ACTION)             \
+                if (CONDITION)                       \
+                {							         \
+                    error = ACTION;			         \
+                    return ACTION;			         \
+                    *struct_sum = calc_struct_sum(); \
+                }
 #else
 	#define GIVE_ERROR(CONDITION,ACTION)         \
-            if ( CONDITION ) return ACTION;
+                if ( CONDITION ) return ACTION;
 #endif
 
 enum ERROR_CODE
