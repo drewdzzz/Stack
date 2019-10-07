@@ -37,7 +37,7 @@ static const int Stack_decrease   = 13;  //decrease value must be more than incr
                     *struct_sum = calc_struct_sum(); \
                 }
 #else
-	#define GIVE_ERROR(CONDITION,ACTION)         \
+	#define GIVE_ERROR(CONDITION,ACTION)        	 \
                 if ( CONDITION ) return ACTION;
 #endif
 
