@@ -8,7 +8,9 @@
 #undef private
 
 #define SET_NAME(stk)              \
-        stk.set_name (#stk);
+                                 \
+            stk.set_name (#stk);   \
+
 
 #define TEST_MODE
 
