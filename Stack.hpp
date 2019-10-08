@@ -4,11 +4,13 @@
 #include <iostream>
 #include <assert.h>
 
-
 #undef private
+#undef public
 
-#define SET_NAME(stk)           \
-            stk.set_name (#stk);
+#define SET_NAME(stk)            \
+        {                        \
+            stk.set_name (#stk); \
+        }
 
 #define TEST_MODE
 
@@ -25,21 +27,11 @@ static const int Stack_decrease   = 13;  //decrease value must be more than incr
 
 #ifdef TEST_MODE
 	typedef int elem_t;
+	#define data_dump printf("%d", data[i]);
 #endif
 
-
-#ifdef TEST_MODE
-	#define GIVE_ERROR(CONDITION,ACTION)             \
-                if (CONDITION)                       \
-                {							         \
-                    error = ACTION;			         \
-                    return ACTION;			         \
-                    *struct_sum = calc_struct_sum(); \
-                }
-#else
-	#define GIVE_ERROR(CONDITION,ACTION)        	 \
+#define GIVE_ERROR(CONDITION,ACTION)        	 \
                 if ( CONDITION ) return ACTION;
-#endif
 
 enum ERROR_CODE
 {
@@ -74,11 +66,8 @@ private:
 	long* struct_sum = 0;	 //initialized DEFEND
 	int canary2 = 0;         //initialized DEFEND
 
-	///@return Not commutative sum of data + 13*size - max_size
-	long calc_data_sum ();
-
 	///@return Sum of struct bytes
-	long calc_struct_sum ();
+	long calc_sum (char* sum_data, long size);
 
 	///@brief Function allocates new memory or delete unneccesary if it is needed
 	///@return pointer to memory, 0 if it is impossible to allocate it
@@ -88,24 +77,24 @@ private:
 	///@return error_code
 	ERROR_CODE verification ();
 
-	///@brief prints state of stack if something is not OK
-	void diagnostic (ERROR_CODE error_code);
+    ///@brief prints stack
+	void print_stack();
 
 public:
 
-	///@brief prints stack
-	void print_stack();
+	///@brief prints state of stack if something is not OK
+	void diagnostic (ERROR_CODE error_code);
 
 	///@brief use SET_NAME( stack name )
 	void set_name (char* name);
 
 	///@brief push element to stack
 	///@return true if element was pushed or false if element wasn't pushed
-	bool push (elem_t new_elem);
+	ERROR_CODE push (elem_t new_elem);
 
 	///@brief pops element off the stack
 	///@return popped element_value
-	elem_t pop ();
+	ERROR_CODE pop (elem_t &pop_value);
 
 	///@return size_of_stack
 	long tell_size ();
@@ -113,35 +102,21 @@ public:
 	Stack_t ();
 
 	~Stack_t ();
-
-    ERROR_CODE error = OK;
 };
 
 
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 
-long Stack_t::calc_data_sum ()
+
+long Stack_t::calc_sum (char* sum_data, long size)
 	{
-		long sum = 0;
-		for (long i = 1; i < size; i++)
-		{
-			if (i%2 == 1)
-				sum+=data[i];
-			else
-				sum-=data[i];
-
-		}
-		sum += 13*size - max_size;
-		return sum;
-	}
-
-long Stack_t::calc_struct_sum ()
-	{
-		char* adress = (char*) this;
 		long sum = 0;
 		char temp = 0;
-		for (long i = 0; i < sizeof(Stack_t); i++)
+		for (long i = 0; i < size; i++)
         {
-            temp = *(adress+i);
+            temp = *(sum_data+i);
             sum += temp & 0x0F + temp >> 4;
         }
 		return sum;
@@ -175,9 +150,11 @@ elem_t* Stack_t::stackmem_check_allocation ()
 
 ERROR_CODE Stack_t::verification ()
 	{
-		long temp_data_sum = calc_data_sum();
-		long temp_struct_sum = calc_struct_sum ();
+        GIVE_ERROR(data == nullptr, SUM_STRUCT_IS_NOT_OK);
+		long temp_data_sum = calc_sum ((char*)data, max_size + 2);
+		long temp_struct_sum = calc_sum ((char*)this, sizeof (Stack_t));
 		GIVE_ERROR(temp_data_sum != data_sum, DATA_SUM_IS_NOT_OK);
+		GIVE_ERROR(struct_sum == nullptr, SUM_STRUCT_IS_NOT_OK);
 		GIVE_ERROR(temp_struct_sum != *struct_sum, SUM_STRUCT_IS_NOT_OK);
 		GIVE_ERROR(canary1 != canary1_value || canary2 != canary2_value, STRUCT_CANARIES_FAULT);
 		GIVE_ERROR(data[0] != canary3_value || data[max_size+1] != canary4_value, DATA_CANARIES_FAULT);
@@ -199,7 +176,7 @@ void Stack_t::diagnostic (ERROR_CODE error_code)
 
 			case (DATA_SUM_IS_NOT_OK):    printf ("DATA SUM IS NOT OK, someone has attacked you :(\n");
 			                              printf ("DATA SUM: %ld\n", data_sum);
-			                              printf ("Data sum must be equal: %ld\n", calc_data_sum ());
+			                              printf ("Data sum must be equal: %ld\n", calc_sum ((char*)data, max_size + 2) );
 			                              break;
 
 			case (STRUCT_CANARIES_FAULT): printf ("STRUCT CANARIES ARE NOT OK, someone has attacked you :(\n");
@@ -223,22 +200,21 @@ void Stack_t::diagnostic (ERROR_CODE error_code)
                                           break;
 
 			case (SUM_STRUCT_IS_NOT_OK):  printf ("STRUCT SUM IS NOT OK, someone has attacked you :(\n");
-			                              printf ("STRUCT SUM: %ld\n", struct_sum);
-                                          printf ("Struct sum must be equal: %ld\n", calc_struct_sum ());
+			                              if (struct_sum != nullptr)
+			                              {
+                                            printf ("STRUCT SUM: %ld\n", *struct_sum);
+                                            printf ("Struct sum must be equal: %ld\n", calc_sum ((char*)this, sizeof(Stack_t)) );
+			                              }
 			                              break;
 
 			case (ALLOCATING_ERROR):      printf ("MEMORY FOR NEW DATA CAN'T BE ALLOCATED\n"); break;
 
-			default:                      printf ("Wrong code:%d\n", error);
+			default:                      printf ("Wrong error code!\n");
                                           break;
 		}
 		if (error_code != ALLOCATING_ERROR && error_code != SUM_STRUCT_IS_NOT_OK) print_stack();
 		printf ("----------------------\n");
 	}
-
-#ifdef TEST_MODE
-	ERROR_CODE error;
-#endif
 
 void Stack_t::print_stack()
 	{
@@ -271,47 +247,42 @@ void Stack_t::print_stack()
 void Stack_t::set_name (char* name)
 	{
 		this->name = name;
-		*struct_sum = calc_struct_sum();
+		*struct_sum = calc_sum((char*)this, sizeof (Stack_t));
 	}
 
-bool Stack_t::push (elem_t new_elem)
+ERROR_CODE Stack_t::push (elem_t new_elem)
 	{
 		ERROR_CODE error_code = verification ();
 		if (error_code == OK)
 		{
             data[size++] = new_elem;
-            data_sum = calc_data_sum ();
-            *struct_sum = calc_struct_sum ();
-            return 1;
+            data_sum = calc_sum ((char*)data, max_size+2);
+            *struct_sum = calc_sum ((char*)this, sizeof (Stack_t));
+            return OK;
 		}
 		else
 		{
-            diagnostic (error_code);
-            return 0;
+            return error_code;
 	    }
 	}
-elem_t Stack_t::pop ()
+ERROR_CODE Stack_t::pop ( elem_t &pop_value)
 	{
 		ERROR_CODE error_code = verification();
 		if (error_code == OK)
 		{
             if ( size == 1 )
             {
-                diagnostic (STACK_UNDERFLOW);
-                return $POISON;
+                pop_value = $POISON;
+                return STACK_UNDERFLOW;
             }
 			size--;
-			elem_t pop_elem = data[size];
+			pop_value = data[size];
 			data[size] = $POISON;
-			data_sum = calc_data_sum ();
-            *struct_sum = calc_struct_sum ();
-			return pop_elem;
+			data_sum = calc_sum ((char*)data, max_size+2);
+            *struct_sum = calc_sum ((char*)this, sizeof (Stack_t));
+			return OK;
 		}
-		else
-		{
-			diagnostic (error_code);
-			return $POISON;
-		}
+		else return error_code;
 	}
 long Stack_t::tell_size ()
 	{
@@ -329,14 +300,18 @@ Stack_t::Stack_t ()
 		data[0] = canary3_value;
 		data[max_size+1] = canary4_value;
 		struct_sum = new long;
-        *struct_sum = calc_struct_sum ();
+        *struct_sum = calc_sum ((char*)this, sizeof (Stack_t));
 	}
 Stack_t::~Stack_t ()
 	{
-		if (data) free (data);
-		data = nullptr;
-		delete struct_sum;
-		struct_sum = nullptr;
+	     if (struct_sum != nullptr)
+            if ( *struct_sum = calc_sum ((char*)this, sizeof (Stack_t)))
+            {
+                free (data);
+                data = nullptr;
+                delete struct_sum;
+                struct_sum = nullptr;
+            }
 	}
 
 //-----------------------------------------------------------------------------
@@ -346,22 +321,28 @@ Stack_t::~Stack_t ()
 #ifdef TEST_MODE
 bool push_test1 ()
 {
-    char test_tmp = 0;
+    elem_t pop_value = 0;
 	Stack_t test_stk = {};
 	SET_NAME (test_stk);
-	for (char i = 10; i <= 100; i += 10)
-	{
-		test_stk.push ((elem_t)i);
-	}
-	if (char size = test_stk.tell_size () != 10)
+	for (int i = 10; i <= 100; i += 10)
+		if (test_stk.push ((elem_t)i) != OK)
+		{
+            printf ("FIRST TEST FAILED. PUSH IS NOT CORRECT\n");
+            return false;
+        }
+	if (int size = test_stk.tell_size () != 10)
 	{
 		printf ("FIRST TEST FAILED. SIZE IS NOT CORRECT\n");
 		return false;
 	}
-    for (char i = 100; i >= 10; i -= 10)
+    for (int i = 100; i >= 10; i -= 10)
 	{
-		test_tmp = (char) test_stk.pop();
-		if (test_tmp != i)
+        if (test_stk.pop (pop_value) != OK)
+		{
+            printf ("FIRST TEST FAILED. PUSH IS NOT CORRECT\n");
+            return false;
+        }
+		if (pop_value != i)
 		{
             printf ("FIRST TEST FAILED. PUSH IS NOT CORRECT\n");
             return false;
@@ -373,13 +354,15 @@ bool push_test1 ()
 
 bool push_test2 ()
 {
-    char test_tmp = 0;
+    elem_t pop_value = 0;
 	Stack_t test_stk = {};
 	SET_NAME (test_stk);
 	for (char i = 1; i <= 12; i ++)
-	{
-		test_stk.push ((elem_t)i);
-	}
+		if (test_stk.push ((elem_t)i) != OK)
+		{
+            printf ("SECOND TEST FAILED. PUSH IS NOT CORRECT\n");
+            return false;
+        }
 	if (char size = test_stk.tell_size () != 12)
 	{
 		printf ("SECOND TEST FAILED. SIZE IS NOT CORRECT\n");
@@ -387,8 +370,12 @@ bool push_test2 ()
 	}
     for (char i = 12; i >= 1; i --)
 	{
-		test_tmp = (char) test_stk.pop();
-		if (test_tmp != i)
+        if (test_stk.pop (pop_value) != OK)
+        {
+            printf ("SECOND TEST FAILED. PUSH IS NOT CORRECT\n");
+            return false;
+        }
+		if (pop_value != i)
 		{
             printf ("SECOND TEST FAILED. PUSH IS NOT CORRECT\n");
             return false;
@@ -415,32 +402,33 @@ bool push_tests ()
     return nice_stack;
 }
 
-bool pop_test1 ()
+bool pop_test1 ()                                  //ПЕРЕДЕЛАТЬ
 {
-    Stack_t test_stk;
+    Stack_t test_stk = {};
    	SET_NAME (test_stk);
     test_stk.push (10);
-    test_stk.pop();
-    test_stk.pop();
-    int size = 0;
-    if ( test_stk.error == STACK_UNDERFLOW )
+    elem_t pop_value = 0;
+    test_stk.pop (pop_value);
+    test_stk.pop (pop_value);
+    if ( test_stk.pop (pop_value) == STACK_UNDERFLOW )
     {
-        printf ("FIRST TEST FAILED. POP IS NOT CORRECT\n");
-        return 0;
+        printf ("First pop test successfully done\n");
+        return 1;
     }
-    printf ("First pop test successfully done\n");
-    return 1;
+    printf ("FIRST POP TEST WAS FAILED!!!\n");
+    return 0;
 }
 
-bool pop_test2 ()
+bool pop_test2 ()                                   //ПЕРЕДЕЛАТЬ
 {
     Stack_t test_stk = {};
     SET_NAME (test_stk);
     test_stk.push (10);
     test_stk.push (43);
-    test_stk.pop();
+    elem_t pop_value = 0;
+    test_stk.pop (pop_value);
     int size = 0;
-    if ( (size = test_stk.tell_size() ) != 1 )
+    if ( (size = test_stk.tell_size () ) != 1 )
     {
         printf ("SECOND TEST FAILED. POP IS NOT CORRECT\n");
         return 0;
@@ -473,17 +461,14 @@ bool attack_test1 ()
 	SET_NAME (test_stk);
 	void* temp_pointer = &test_stk;
 	char* executioner = (char*)temp_pointer;
-   	printf ("\nGONNA ATTACK, WAIT FOR DIAGNOSTIC\n");
    	*(executioner+3) = 0;
-   	test_stk.push(10);
-   	printf ("ATTACK IS OVER\n");
-   	if (test_stk.error != OK)
+   	if (test_stk.push(10) != OK)
    	{
-   		printf ("Attack detected. First test is successfully done\n");
+   		printf ("First attack was detected\n");
     }
    	else
    	{
-   		printf ("Attack is not detected. First test is failed\n");
+   		printf ("First attack was not detected\n");
    		nice_stack = false;
    	}
    	return nice_stack;
@@ -496,18 +481,15 @@ bool attack_test2 ()
 	SET_NAME (test_stk);
 	void* temp_pointer = &test_stk;
 	char* executioner = (char*)temp_pointer;
-   	printf ("\nGONNA ATTACK, WAIT FOR DIAGNOSTIC\n");
-   	for (int i = 2; i < 6; i++)
+   	for (int i = 0; i < sizeof(Stack_t); i++)
    		*(executioner+i) = 0;
-   	test_stk.push(3);
-   	printf ("ATTACK IS OVER\n");
-   	if (test_stk.error != OK)
+   	if (test_stk.push(10) != OK)
    	{
-   		printf ("Attack detected. First test is successfully done\n");
+   		printf ("Second attack was detected\n");
     }
    	else
    	{
-   		printf ("Attack is not detected. First test is failed\n");
+   		printf ("Second attack was not detected\n");
    		nice_stack = false;
    	}
    	return nice_stack;
@@ -550,8 +532,10 @@ bool stack_tests ()
             printf ("\n!!!!!!ATTACK TESTS WERE FAILED!!!!!!\n\n");
     nice_stack = false;
     }
-    if (nice_stack == true) printf ("\n\nYOUR STACK IS OK\n\n\n");
-        else printf ("!!!!!!Your stack is not OK!!!!!!");
+    if (nice_stack == true) printf ("\nYOUR STACK IS OK\n"
+                                    "////-----------------------------------------------------------------------------\n\n\n"
+                                    );
+    else printf ("!!!!!!Your stack is not OK!!!!!!");
     return nice_stack;
 }
 #endif
